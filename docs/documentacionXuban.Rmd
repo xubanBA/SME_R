@@ -1,0 +1,969 @@
+---
+title: "Documento de la entrega de R"
+author: "Xuban Barberena Apezetxea"
+date: "2023-11-05"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Este documento tiene como objetvo ilustrar el uso de las funciones implementadas.
+
+Para ello, se mostrará punto por punto las funciones implementadas tal y como se menciona en el enunciado. Además, se añadirán casos de uso de dichas funciones para comprobar el correcto funcionamiento.
+
+<br />
+
+/######### NOTAS ###########
+
+* La idea original era crear el paquete y utilizarlo para cargar las funciones. De este modo, no sería necesario escribir todas las funciones para hacer las pruebas. Sin embargo, RStudio me ha dado muchos problemas y al final no he podido crear el paquete. Por lo tanto, en esta documentación, además de los casos de uso, para el correcto funcionamiento he añadido todas las funciones implementadas.
+
+* En la entrega se ha añadido la libreria en archivos .R (no paquete) en la carpeta code y la documentación en la carpeta docs (se ha añadido un archio .Rmd y .html).
+
+* La librería se ha dividido en 3 scripts: el archivo `main_funcs.R` es el script principal que contiene las funciones que podran ser llamadas. El script `utils.R` contiene las funciones auxiliares que usará el script principal. Por último, `plotting.R` contiene las funciones para visualizar.
+
+* Además, se ha creado un repositorio en Github donde se ha subido la entrega. El URL es el siguiente: https://github.com/xubanBA/SME_R.git
+
+/##########################
+
+<br />
+<br />
+
+Ahora sí, para empezar, se definen los datos que se utilizarán como ejemplo para ejecutar las funcionen en este documento.
+
+Se ha definido un vector y un dataframe que contienene columnas de diversos tipos. De este modo, se comprobará que as funciones cumplen con los requisitos de los tipos de datos que puedan procesar.
+
+```{r, eval=TRUE}
+# Lista
+x = c(11.5, 10.2, 1.2, 0.5, 5.3, 20.5, 8.4)
+
+#Dataframe
+df <- data.frame(
+  Col1 = c(1.0, 1.0, 2.2, 3.1, 5.5),
+  Col2 = as.integer(c(1, 0, 1, 2, 3)),
+  Col3 = as.integer(c(0, 0, 1, 2, 2)),
+  Col4 = c(1.0, 2.2, 2.2, 5.5, 1.0),
+  Col5 = as.factor(c(2, 2, 3.1, 3.1, 3.1)),
+  Col6 = as.factor(as.integer(c(3, 2, 2, 4, 5))),
+  Col7 = as.factor(c('Blanco', 'Negro', 'Negro', 'Blanco','Rojo')),
+  Col8 = as.factor(c('Rojo', 'Verde', 'Azul', 'Blanco', 'Blanco')),
+  col9 = c('a', 'b', 'c', 'd', 'e'),
+  Col10 = c(TRUE, FALSE, TRUE, FALSE, TRUE)
+)
+```
+
+A continuación, se comienza detallando cada ejercicio implementado apartado por apartado:
+
+
+## <u>**Discretización**</u>
+
+El objetivo de este apartado ha sido implementar los 2 diferentes algoritmos de discretización: Equal Width (igual anchura) y Equal Frequency (igual frecuencia).
+
+Como parámetro de entrada será un vector o un dataframe y el número de intervalos. De este modo, se devuelve la discretización y los puntos de corte.
+
+<br />
+
+### - **Equal Width:**
+El objetivo es discretizar un vector o un Dataframe numérico haciendo uso del algoritmo Equal Width para un número de intervalos establecido.
+
+Se han creado dos funciones:
+
+* <u>algoritmo_discretizeEW</u>: función auxiliar donde se implementa el algoritmo de discretización.
+* <u>discretizeEW</u>: función principal que comprueba si el argumento de entrada es un vector o un dataframe y llama a la función auxiliar. En caso de que reciba un dataframe, se hace uso de la función apply() de pandas para procesar cada columna.
+```{r, eval=TRUE}
+discretizeEW <- function(x, num_bins) {
+  #'  Discretiza una lista o un DataFrame utilizando el algoritmo Equal Width (igual anchura).
+  
+  #'  Utiliza la función algoritmo_discretizeEW() del archivo utils.R para aplicar el algoritmo.
+  #'  En esta función se comprueba de que tipo es el argumento recibido para actuar de una forma u otra.
+  #'  En cualuier caso, filtrá las variables para escoger solo las numéricas.
+  #'
+  #' @param x La lista o DataFrame que se va a discretizar.
+  #' @param num_bins (entero) El número intervalos en los que se discretizará.
+  #' 
+  #' @return Una lista donde se guarda la discretizacion y los puntos de corte.
+  #' @return En caso que la entrada sea una dataframe, se devuelve una lista de listas
+  #'         donde en cada elemento guarda la discretizacion y los puntos de corte de cada variable.
+
+  if (is.vector(x)) { # si es atributo en forma de lista
+    es_numerico <- all(sapply(x, function(valor) is.numeric(valor)))
+    if (es_numerico) {
+      resultado <- algoritmo_discretizeEW(x, num_bins)
+      x_discretizado <- resultado$x_discretized
+      cut_points <- resultado$cut_points
+      return(list(x_discretizado = x_discretizado, cut_points = cut_points))
+    }
+  } else if (is.data.frame(x)) { # si es dataframe
+    x <- x[sapply(x, function(col) is.numeric(col))]
+    x_discretizado <- lapply(x, function(col) algoritmo_discretizeEW(col, num_bins))
+    return(x_discretizado)
+  }
+}
+
+
+
+algoritmo_discretizeEW <- function(x, num_bins) {
+  #' Aplica el algoritmo Equal Width (igual anchura) para obtener los puntos de corte y así
+  #' poder discretizar una lista o columna numérica.
+  #'
+  #' @param x vector que se va a discretizar.
+  #' @param num_bins Número de intervalos en los que se discretizará.
+  #'
+  #' @return Una lista que contiene la discretizacion categórica de la entrada en la primera
+  #'         posicion y los puntos de corte en la segunda.
+
+  
+  # Empezar aplicando el algoritmo equal width para determinar los puntos de corte
+  minv <- min(x)
+  maxv <- max(x)
+  interv <- (maxv - minv) / num_bins
+  cut_points <- seq(minv + interv, maxv, by = interv)
+  
+  # Discretizar tomando cada valor de x para mirar en qué intervalo cae
+  x_discretized <- c()
+  for (val in x) {
+    for (i in 1:(length(cut_points) - 1)) {
+      punto <- cut_points[i]
+      if (val <= punto) {
+        x_discretized <- c(x_discretized, paste0("I", i))
+        break
+      }
+      if (i == length(cut_points) - 1) {
+        x_discretized <- c(x_discretized, paste0("I", num_bins))
+      }
+    }
+  }
+  return(list(x_discretized = as.factor(x_discretized), cut_points = cut_points))
+}
+```
+
+
+### <u>Caso de uso:</u> Equal Width
+Se hará la prueba en los dos casos: con un vector y un dataframe.
+
+En el caso del dataframe, se puede ver que solo se escogen las columnas numéricas. Como de ha mencionado en la documentación de las funciones, el resultado devuelve una lista de listas. En este caso, solo se han mostrado las primeras dos.
+
+```{r, eval=TRUE}
+# Número de intervalos
+num_bins <- 3
+
+# Lista
+res <- discretizeEW(x, num_bins)
+print(res)
+
+# Dataframe
+res <- discretizeEW(df, num_bins)
+print(res[1:2])
+```
+
+
+### - **Equal Frequency:**
+El objetivo es discretizar un vector o un Dataframe numérico haciendo uso del algoritmo Equal Frequency para un número de intervalos establecido.
+
+Se han creado dos funciones, que son equivalentes a lo explicado en Equal Width.
+
+```{r, eval=TRUE}
+discretizeEF <- function(x, num_bins) {
+  #'  Discretiza una lista o un DataFrame utilizando el algoritmo Equal Frequency (igual frecuencia).
+  
+  #'  Utiliza la función algoritmo_discretizeEF() del archivo utils.R para aplicar el algoritmo.
+  #'  En esta función se comprueba de que tipo es el argumento recibido para actuar de una forma u otra.
+  #'  En cualuier caso, filtrá las variables para escoger solo las numéricas.
+  #'
+  #' @param x La lista o DataFrame que se va a discretizar.
+  #' @param num_bins (entero) El número intervalos en los que se discretizará.
+  #' 
+  #' @return Una lista donde se guarda la discretizacion y los puntos de corte.
+  #' @return En caso que la entrada sea una dataframe, se devuelve una lista de listas
+  #'         donde en cada elemento guarda la discretizacion y los puntos de corte de cada variable.
+  
+  if (is.vector(x)) { # si es atributo en forma de lista
+    es_numerico <- all(sapply(x, function(valor) is.numeric(valor)))
+    if (es_numerico) {
+      resultado <- algoritmo_discretizeEF(x, num_bins)
+      x_discretizado <- resultado$x_discretized
+      cut_points <- resultado$cut_points
+      return(list(x_discretizado = x_discretizado, cut_points = cut_points))
+    }
+  } else if (is.data.frame(x)) { # si es dataframe
+    x <- x[sapply(x, function(col) is.numeric(col))]
+    x_discretizado <- lapply(x, function(col) algoritmo_discretizeEF(col, num_bins))
+    return(x_discretizado)
+  }
+}
+
+
+algoritmo_discretizeEF <- function(x, num_bins) {
+  #' Aplica el algoritmo Equal Frequency (igual frecuencia) para obtener los puntos de corte y así
+  #' poder discretizar una lista o columna numérica.
+  #'
+  #' @param x vector que se va a discretizar.
+  #' @param num_bins Número de intervalos en los que se discretizará.
+  #'
+  #' @return Una lista que contiene la discretizacion categórica de la entrada en la primera
+  #'         posicion y los puntos de corte en la segunda.
+  
+  # Empezar aplicando el algoritmo equal frequency para determinar los puntos de corte
+  interval_size <- length(x) %/% num_bins  # Calcular el tamaño de cada intervalo
+  sorted_x <- sort(x)  # Ordenar el vector de entrada
+  cut_points <- sapply(1:(num_bins-1), function(i) sorted_x[i * interval_size])  # Sacar los puntos de corte
+  
+  # Discretizar tomando cada valor de x para mirar en qué intervalo cae
+  x_discretized <- c()
+  for (val in x) {
+    for (i in 1:(length(cut_points) - 1)) {
+      punto <- cut_points[i]
+      if (val <= punto) {
+        x_discretized <- c(x_discretized, paste0("I", i))
+        break
+      }
+      if (i == length(cut_points) - 1) {
+        x_discretized <- c(x_discretized, paste0("I", num_bins))
+      }
+    }
+  }
+  
+  return(list(x_discretized = as.factor(x_discretized), cut_points = cut_points))
+}
+```
+
+
+
+### <u>Caso de uso:</u> Equal Frequency
+Se hará la prueba en los dos casos: con un vector y un dataframe (el resultado del dataframe es equivalente a lo que se ha mencionado en Equal Width).
+```{r, eval=TRUE}
+# Número de intervalos
+num_bins <- 3
+
+# Lista
+res <- discretizeEF(x, num_bins)
+print(res)
+
+# Dataframe
+res <- discretizeEF(df, num_bins)
+print(res[1:2])
+```
+
+
+<br />
+
+# <u>**Métricas**</u>   
+El objetivo de este apartado es calcular métricas para los atributos de un dataset. En concreto, la varianza y AUC para variables continuas y entropía para las discretas.
+
+### - **Varianza:**
+Se han credo dos funciones:
+
+* <u>varianza_dataframe()</u>: funcion principal que selecciona las variables continuas y utiliza después la función apply() de pandas para procesar cada columna haciendo uso de la funcion auxiliar varianza() para realizar los cálculos.
+
+* <u>varianza()</u>: función auxiliar que recibe una columna de un dataframe y devuelve la varianza de esta.
+
+
+```{r, eval=TRUE}
+varianza_dataframe <- function(df) {
+  #' Calcula la varianza de las columnas continuas de un DataFrame.
+  #'
+  #' Utiliza la función varianza() del archivo utils.R para calcular la varianza para cada columna.
+  #'
+  #' @param df Un DataFrame de R que contiene columnas con cualquier tipo de datos.
+  #'        La función filtra el DataFrame para seleccionar solo las columnas continuas
+  #'
+  #' @return Un vector de tipo numerico con los nombres de las variables originales asociados a sus elementos.
+  
+  df <- df[sapply(df, is.double)]  # Seleccionar las columnas numéricas del DataFrame
+  
+  return(sapply(df, varianza))  # Aplicar la función de varianza a cada columna
+}
+
+
+varianza <- function(col) {
+  #' Calcula la varianza de un vector cuyos elementos sean continuos.
+  #'
+  #' Originalmente implementado para utilizar con columnas de un dataframe, pero se puede utilizar con cualquier vector
+  #'
+  #' @param col Vector de números para los cuales se calculará la varianza.
+  #'
+  #' @return Un valor de tipo float.
+
+  if (length(col) != 0) {
+    media <- sum(col) / length(col) # Calcular la media
+    varianza <- sum((col - media) ^ 2) / length(col) # Aplicar la fórmula de la varianza
+    return(varianza)
+  } 
+}
+```
+
+
+### <u>Caso de uso:</u> Varianza
+
+Se ve que de entre todas las columnas selecciona correctamente solo las continuas. Como se ha comentado en la documentación de la función, devuelve una lista con el nombre asociado indicando la varianza de cada variable.
+
+
+```{r, eval=TRUE}
+res <- varianza_dataframe(df)
+print(res)
+```
+
+
+
+### - **Entropia:**
+Se han credo dos funciones que son equivalentes a lo mencionado en la varianza.
+
+```{r, eval=TRUE}
+entropia_dataframe <- function(df) {
+  #' Calcula la entropia de las columnas discretas de un DataFrame.
+  #'
+  #' Utiliza la función entropia() del archivo utils.R para calcular la varianza para cada columna.
+  #'
+  #' @param df Un DataFrame de R que contiene columnas con cualquier tipo de datos.
+  #'        La función filtra el DataFrame para seleccionar solo las columnas discretas
+  #'
+  #' @return Un vector de tipo numerico con los nombres de las variables originales asociados a sus elementos.
+
+  df <- df[sapply(df, is.integer)]  # Seleccionar las columnas numéricas del DataFrame
+  
+  return(sapply(df, entropia))  # Aplicar la función de entropía a cada columna
+}
+
+
+entropia <- function(x) {
+  #' Calcula la entropia de un vector cuyos elementos sean discretos
+  #'
+  #' Originalmente implementado para utilizar con columnas de un dataframe, pero se puede utilizar con cualquier vector
+  #'
+  #' @param col Vector de números para los cuales se calculará la entropia
+  #'
+  #' @return Un valor de tipo float.
+  
+  # Empezar contando las apariciones de cada elemento
+  cont_val <- table(x)
+  
+  # Calcula las Probabilidades de Cada Valor
+  probs <- cont_val / length(x)
+  
+  # Calcular la entropía dada las probabilidades
+  return(-sum(probs * log2(probs), na.rm = TRUE) )
+}
+```
+
+### <u>Caso de uso:</u> Entropia
+
+Lo mismo que se ha comentado en el caso de uso de Varianza.
+
+```{r, eval=TRUE}
+res <- entropia_dataframe(df)
+print(res)
+```
+
+
+
+### - **Curva AUC-ROC:**
+Aquí también se ha creado una función principal y una auxiliar, pero hay una diferencia con las dos anteriores.
+
+Para obtener el AUC hace falta unas etiquetas para cada variable. Para simplificar el proceso, se ha decidido que las etiquetas esten en la última columna del dataframe y todas las continuas utilizarán la misma etiqueta (así se ha definido el dataframe al principio del documento).
+
+Por lo tanto, en la función principal roc_dataframe() se selecciona la última columna para pasar juanto a cada columna a la función auxiliar get_roc().
+
+```{r, eval=TRUE}
+roc_dataframe <- function(df) {
+  #' Calcula las curvas ROC para las columnas continuas de un DataFrame utilizando las etiquetas de la última columna
+  #' como valores de clase.
+  #' 
+  #' Utiliza la función get_roc() del archivo utils.R para calcular para cada columna el área debajo de la curva ROC y las   #' listas
+  #' FPR y TPR.
+  #'
+  #' @param df Un DataFrame de R que contiene columnas con cualquier tipo de datos.
+  #'        La función filtra el DataFrame para seleccionar solo las columnas continuas
+  #'
+  #' @return Un dataframe. Para cada columna (variables originales) tiene 3 filas donde la primera muestra
+  #'         el area debajo de la curva, la segunda devuelve la lista de TPR y la tercera la lista FPR.
+  
+  col_etiqueta <- df[, ncol(df)]  # Guardar las etiquetas (última columna)
+  df <- df[sapply(df, is.double)]  # Seleccionar las columnas numéricas del DataFrame
+  
+  return( as.data.frame(sapply(df, get_roc, etiquetas = col_etiqueta)))  # Aplicar la función get_roc a cada columna
+}
+
+
+get_roc <- function(df, etiquetas) {
+  #' Calcula la curva ROC para una columna continua y las etiquetas de clase proporcionadas.
+  #'
+  #' Originalmente implementado para utilizar con columnas de un dataframe, pero se puede utilizar con cualquier vector
+  #'
+  #' @param col Vector de números para los cuales se calculará la curva ROC.
+  #' @param etiquetas Vector que representa de clase correspondientes a la columna continua.
+  #'
+  #' @return Una lista donde la primera posicion es el area debajo de la curva, la segunda los TPR y la tercera los FPR.
+
+  # Ordenar el DataFrame
+  df <- sort(df)
+  
+  # Inicializar listas para almacenar TPR y FPR
+  tpr_list <- vector()
+  fpr_list <- vector()
+  
+  # Determinar los puntos de la curva ROC (es decir, todos los pares TPR, FPR para cada posible valor de corte)
+  for (valor_corte in df) {
+    # Calcular TP, FP, TN, FN para el valor de corte dado
+    TP <- sum(df >= valor_corte & etiquetas == TRUE)
+    FP <- sum(df >= valor_corte & etiquetas == FALSE)
+    TN <- sum(df < valor_corte & etiquetas == FALSE)
+    FN <- sum(df < valor_corte & etiquetas == TRUE)
+    
+    # Calcular TPR y FPR para el valor de corte actual
+    TPR <- TP / (TP + FN)
+    FPR <- FP / (FP + TN)
+    
+    # Guardar TPR y FPR del valor de corte en la lista
+    tpr_list <- c(tpr_list, TPR)
+    fpr_list <- c(fpr_list, FPR)
+  }
+  
+  # Calcular el área bajo la curva ROC (AUC) usando la regla del trapecio
+  auc <- 0
+  for (i in 2:length(tpr_list)) {
+    auc <- auc + 0.5 * (fpr_list[i] - fpr_list[i - 1]) * (tpr_list[i] + tpr_list[i - 1])
+  }
+  
+  return(list(auc = auc, tpr_list = tpr_list, fpr_list = fpr_list))
+}
+```
+
+
+### <u>Caso de uso:</u> Curva AUC-ROC
+
+En este caso, tal y como se comenta en la documentación, el resultado es una matriz donde para cada columna procesada la primera fila indica el área debajo de la curva, la segunda fila la lista TPR, y la tercera fila la lista FPR.
+
+En este caso también se ve de entre todas las columnas solo escoge las continuas.
+
+```{r, eval=TRUE}
+res <- roc_dataframe(df)
+print(res)
+```
+
+<br />
+
+# <u>**Normalización y estandarización**</u>  
+Normalizacion y estandarización de variables tanto de manera individual como para el dataset completo. Solo se han procesado las variables que son numéricas, es decir, las booleanas y categoricas no se procesarán.
+
+En los dos casos se ha creado dos funciones:
+
+  * **normalizar()** y **estandarizar()**: funciones principales que se encargan de comprobar si las variables son numéricas para después llamar a la funciones auxiliares para realizar el cálculo. En caso de que a entrada sea un dataframe, se utiliza la función apply() de pandas para procesar cada columna.
+
+  * **aux_normalizar()** y **aux_estandariza()**: funciones auxiliares donde se realiza el cálculo para una variable ys numérica pasado como argumento.
+
+<br />
+
+### - **Normalización:**
+
+```{r, eval=TRUE}
+normalizar <- function(x) {
+  #' Normaliza un vector de valores numéricos o un DataFrame con columnas numéricas en el rango [0, 1].
+  #'
+  #' Utiliza la función aux_normalizar() del archivo utils.R.
+  #'
+  #' @param x Vector o dataframe que se va a normalizar
+  #'
+  #' @return Un vector normalizado si los elementos son numericos, sino devuelve el propoo vector sin cambios
+  #' @return Dataframe de la entrada pero con las columnas numericas normalizadas
+  
+  if (is.vector(x)) { # es un vector
+    if (all(sapply(x, function(valor) is.numeric(valor)))) { # mirar que sea todo numerico
+      return(aux_normalizar(x))
+    } else {
+      return(x)
+    }
+    
+  } else if (is.data.frame(x)) { # es un dataframe
+    df <- x
+    columnas_numericas <- sapply(df, is.numeric)
+    df[columnas_numericas] <- lapply(df[columnas_numericas], aux_normalizar)
+    return(df)
+    
+  } else {
+    return("No es ni una lista ni un DataFrame")
+  }
+}
+
+
+aux_normalizar <- function(x) {
+  #' Normaliza una lista de valores numéricos en el rango [0, 1].
+  #' Para normalizar los valores se utiliza la fórmula: (val - min_valor) / (max_valor - min_valor)
+  #'
+  #' @param x Vector que se va a normalizar
+  #'
+  #' @return Un vector normalizado.
+  #' @return Vector original si no se cumple (max_valor - min_valor) != 0
+  
+  min_valor <- min(x)
+  max_valor <- max(x)
+  
+  if ((max_valor - min_valor) != 0) {
+    return( (x - min_valor) / (max_valor - min_valor) ) # Devolver la lista normalizada
+  } else {
+    return(x) 
+  }
+}
+```
+
+
+
+### <u>Caso de uso:</u> Normalización
+
+Se aprecia que la lista normaliza correctamente y como devuelve el dataframe original pero con solo las columnas numéricas normalizadas (Col1-Col4).
+
+```{r, eval=TRUE}
+# Lista
+res <- normalizar(x)
+print(res)
+
+# Dataframe
+res <- normalizar(df)
+print(res)
+```
+
+
+### - **Estandarización:**
+
+```{r, eval=TRUE}
+estandarizar <- function(x) {
+  #' Estandariza un vector de valores numéricos o un DataFrame con columnas numéricas 
+  #' para que tengan media 0 y desviación estándar 1.
+  #'
+  #' Utiliza la función aux_estandarizarr() del archivo utils.R.
+  #'
+  #' @param x Vector o dataframe que se va a estandarizar
+  #'
+  #' @return Un vector normalizado si los elementos son numericos, sino devuelve el propoo vector sin cambios
+  #' @return Dataframe de la entrada pero con las columnas numericas estandarizadas
+  
+  if (is.vector(x)) { # es un vector
+    if (all(sapply(x, function(valor) is.numeric(valor)))) { # mirar que sea todo numerico
+      return(aux_estandarizar(x))
+    } else {
+      return(x)
+    }
+    
+  } else if (is.data.frame(x)) { # es un dataframe
+    df <- x
+    columnas_numericas <- sapply(df, is.numeric)
+    df[columnas_numericas] <- lapply(df[columnas_numericas], aux_estandarizar)
+    return(df)
+    
+  } else {
+    return("No es ni una lista ni un DataFrame")
+  }
+}
+
+
+
+aux_estandarizar <- function(x) {
+  #' Estandariza un vector de valores numéricos para que tengan media 0 y desviación estándar 1.
+  #' Para estandarizar se ha utilizado la formula:  (val - media) / des_estandar
+  #'
+  #' @param x Vector que se va a estandarizar
+  #'
+  #' @return Un vector estandarizado
+  #' @return Vector original si no se cumple des_estandar != 0
+
+  media <- mean(x)
+  des_estandar <- sd(x)
+  
+  if (des_estandar != 0) {
+    return( (x - media) / des_estandar ) # Devolver la lista normalizada
+  } else {
+    return(x)
+  }
+}
+```
+
+
+### <u>Caso de uso:</u> Estandarización
+
+Se aprecia que la lista estandariza correctamente y como devuelve el dataframe original pero con solo las columnas numéricas estandarizadas (Col1-Col4).
+
+```{r, eval=TRUE}
+# Lista
+res <- estandarizar(x)
+print(res)
+
+# Dataframe
+res <- estandarizar(df)
+print(res)
+```
+
+
+
+<br/>
+
+# <u>**Filtrado de variables**</u>  
+Filtrado de variables en base a las métricas implementadas. Es decir, partiendo de un dataframe, obtener uno nuevo donde todas las variables cumplan los requisitos indicado.
+
+En este caso, se ha decidido escoger las variables que superen un umbral establecido. Por otro lado, las funciones definidas para poder aplicar el filtrado son la varianza y entropia. Sin embargo, en la documentación de la función de filtrado se detalla como incluir mas métricas de forma sencilla.
+
+```{r, eval=TRUE}
+aplicar_filtrado <- function(nombre_func, df, umbral) {
+  #' Aplica un filtrado a un DataFrame utilizando una función para calcular una métrica específica y un umbral.
+  #' De este modo, dado un dataframe solo se escogen las columnas que SUPEREN el umbral establecido para la función
+  #' indicada. 
+  #'
+  #' Las funciones disponibles estan establecdos en la lista lista_funciones con nombres asocados. Por ahora solo se han 
+  #' añadido las metricas varianza y entropia, pero si se quiere añadir otras solo hay que indicar en la lista
+  #'
+  #' @param nombre_func string con el nombre de la metrica
+  #' @param df Dataframe donde se aplicara las funciones
+  #' @param umbral numerico. El umbrals para filtrar los resultados de la función.
+  #'
+  #' @return Dataframe con las columnas que cumplan los requisitos
+  #' @return Si el nombre de la función no es válido, devuelve un mensaje indicando que la función no es válida.
+  
+  # Mapeo de nombres de funciones 
+  lista_funciones <- list(
+    varianza = varianza_dataframe,
+    entropia = entropia_dataframe
+  )
+  
+  # Verificar si la función existe en el diccionario
+  if (nombre_func %in% names(lista_funciones)) {
+    res <- lista_funciones[[nombre_func]](df) # Llamada a la función pasando el dataframe
+    
+    # Filtrar el dataframe según el umbral
+    columnas_filtradas <- names(res[res > umbral])
+    
+    df_nuevo <- df[columnas_filtradas]
+    return(df_nuevo)
+    
+  } else {
+    return("Función no válida")
+  }
+}
+```
+
+
+### <u>Caso de uso:</u> Filtrado de variables
+Se han hecho la prueba con la dos métricas establecidas, y se puede ver como solo escoge aquellas variables que cumplan con los requisitos de la mñetrica definida y superen el umbral.
+
+
+```{r, eval=TRUE}
+
+# Llamada varianza
+funcion_nombre <- 'varianza'
+umbral <- 2.75
+res <- aplicar_filtrado(funcion_nombre, df, umbral)
+print(res)
+
+# Llamada entropia
+funcion_nombre <- 'entropia'
+umbral <- 1.6
+res <- aplicar_filtrado(funcion_nombre, df, umbral)
+print(res)
+```
+
+
+<br/>
+
+# <u>**Correlación e Información Mutua**</u>  
+El objetivo de este apartado es calcular la correlación e información mutua entre pares de variables de un dataframe. Se calculará la correlación con variables numéricos y la información mutua con variables categóricos.
+
+En R, para definir una variable categórica, se usa el tipo de dato factor (así se ha definido varias columnas en el dataframe del inicio).
+
+<br/>
+
+### - **Correlación:**
+Se ha creado una sola función que recibe una dataframe como entrada, selecciona las columnas numéricas y aplica la función corr() de pandas tal y como se indica en el enunciado.
+
+```{r, eval=TRUE}
+calcular_correlacion <- function(df) {
+  #' Calcula la matriz de correlación para las columnas numéricas de un DataFrame.
+  #' Hace uso de la funcion cor().
+  #'
+  #' Los valores estarán en el rango de -1 a 1, donde 1 indica una correlación positiva perfecta, -1 
+  #' indica una correlación negativa perfecta y 0 indica falta de correlación. 
+  #' 
+  #' @param df El DataFrame del cual se calculará la correlación. Las columnas ueden ser de cualquier tipo,
+  #'           pero se escogerán solo aquellas que sean numéricas.
+  #'
+  #' @return Un dataframe en forma de matriz de correlación para las columnas numéricas del DataFrame.
+  #'         Las columnas y filas mantendran los mismos nombres que el dataframe original.
+
+  df <- df[sapply(df, is.numeric)] # Seleccionar solo las columnas numéricas
+  return( as.data.frame(cor(df)) )
+}
+
+```
+
+### <u>Caso de uso:</u> Correlación
+
+En este caso se puede apreciar como devuelve la matriz de correlación de pares de variables numéricas de un dataframe. Las columnas y las filas tienen los nombres de las variables originales del dataframe.
+
+```{r, eval=TRUE}
+res <- calcular_correlacion(df)
+print(res)
+```
+
+
+### - **Información Mutua:**
+En este caso, se ha creado una función principal que seleccioná las variables categóricas y llama a la función auxiliar info_mutua() para realizar los cálculos.
+
+No se puede utilizar funciones que calculen directamente, por lo que se ha hecho a mano. Para ello, se sabe que la información mutua de dos variables viene dado como: $info\_mutua = entropia1 + entropia2 - entropia\_conjunta$
+
+```{r, eval=TRUE}
+calcular_info_mutua <- function(df) {
+  #' Calcula la información mutua entre las columnas categóricas de un DataFrame.
+  #' Utiliza la función info_mutua() del archivo utils.R para calcular la informaciOn mutua entre pares de columnas.
+  #'
+  #' Los valores estarán en un rango positivo, donde valores más altos indican una mayor dependencia entre las variables.
+  #' 
+  #' @param df El DataFrame del cual se calculará la información mutua. Las columnas ueden ser de cualquier tipo,
+  #'           pero se escogerán solo aquellas que sean numéricas.
+  #'
+  #' @return Un dataframe en forma de matriz de informacion mutua para las columnas categóricas del DataFrame.
+  #'         Las columnas y filas mantendran los mismos nombres que el dataframe original.
+  
+  df <- df[sapply(df, is.factor)] # Seleccionar solo las columnas numéricas
+  return(info_mutua(df))
+}
+
+
+entropia_conjunta <- function(x, y) {
+  #' Calcula la entropía conjunta de dos vectores.
+  #' Función auxiliar para calcular la informacion mutua entre 2 variables.
+  #'
+  #' Al igual que la funcion entropia() utiliza la fórmula: H(X) = -sum(p(x) * log2(p(x))),  donde ahora p(x)
+  #' son las probabilidades conjuntas de cada valor de una lista con la otra.
+  #' 
+  #' @param x Vector que representa la primera variable.
+  #' @param y Vector que representa la segunda variable.
+  #'
+  #' @return float: Valor de entropía conjunta.
+  
+  # Calcular las probabilidades conjuntas
+  cont_val <- table(x, y)
+  
+  # Calcula las Probabilidades Conjuntas de Cada Par (x, y)
+  probs_conjuntas <- prop.table(cont_val)
+  
+  # Calcular la entropía conjunta dada las probabilidades
+  probs_conjuntas[probs_conjuntas == 0] <- 1e-10 # Evitar el logaritmo de 0 agregando un pequeño valor epsilon
+  return(-sum(probs_conjuntas * log2(probs_conjuntas)) )
+}
+
+
+info_mutua <- function(df) {
+  #' Calcula la información mutua entre todas las columnas de un DataFrame.
+  #' Es una función auxiliar que se usa en la función calcular_info_mutua() donde se pasa como argumento
+  #' un dataframe con la columnas categoricas.
+  #' 
+  #' Para calcular la información mutua entre 2 variables se ha hecho uso de la función:
+  #' información mutua = entropia1 + entropia2 - entropia_conjunta
+  #' 
+  #' @param df  DataFrame de R que contiene variables para las cuales se calculará la información mutua.
+  #'
+  #' @return DataFrame que contiene los valores de información mutua para cada par de columnas del DataFrame.
+  #'          Los nombres de las columnas y las filas del DataFrame corresponden a las columnas del DataFrame original.
+  
+  # Obtener nombres de las columnas
+  columnas <- colnames(df)
+  
+  # Inicializar una matriz vacía para almacenar los resultados
+  mat_mut <- matrix(nrow = length(columnas), ncol = length(columnas))
+  
+  # Procesar todos los pares de columnas
+  for (i in 1:length(columnas)) {
+    fila <- numeric(length(columnas))
+    
+    # Calcular entropia 1
+    entr1 <- entropia(df[[columnas[i]]])
+    
+    for (j in 1:length(columnas)) {
+      # Calcular entropia 2
+      entr2 <- entropia(df[[columnas[j]]])
+      
+      # Calcular entropia conjunta
+      entr_conj <- entropia_conjunta(df[[columnas[i]]], df[[columnas[j]]])
+      
+      # Calcular información mutua
+      inf_mut <- entr1 + entr2 - entr_conj
+      
+      # Guardar en la matriz
+      fila[j] <- inf_mut
+    }
+    
+    mat_mut[i,] <- fila
+  }
+  
+  # Crear un dataframe a partir de la matriz y establecer nombres de columnas
+  mat_mut_df <- as.data.frame(mat_mut)
+  colnames(mat_mut_df) <- columnas
+  rownames(mat_mut_df) <- columnas
+  
+  return(mat_mut_df)
+}
+```
+
+### <u>Caso de uso:</u> Información Mutua
+
+De la misma forma que con correlacion, el resultado es un dataframe que es equivalente a una matriz que ofrece la información mutua por pares de variables.
+
+```{r, eval=TRUE}
+res <- calcular_info_mutua(df)
+print(res)
+```
+
+
+<br/>
+
+# <u>**Visualización**</u>  
+
+A continuación, se presentan las funciones implementadas para la visualización de la matriz de correlació, información mutua y la curva AUC'ROC..
+
+<br/>
+
+### - **Correlación:**
+Se pasa como argumento el dataframe y la funcion se encargará de obtener los resultados (llamando a calcular_correlacion()) y de realizar el plot.
+
+```{r, eval=TRUE}
+visualizar_matriz_correlacion <- function(datos) {
+  #' Visualiza la matriz de correlación para un dataframe.
+  #' Se hace uso de función calcular_correlacion() para obtener los datos y asi poder realizar el plot.
+  #'
+  #' @param datos Un DataFrame que contiene las variables para las cuales se calculará la correlacion.
+  
+  # Calcula la matriz de correlaciones
+  matriz <- calcular_correlacion(datos) 
+  matriz <-  as.matrix(matriz[nrow(matriz):1, ]) # Hace falta que sea matriz para usar image()
+  # Ademas, invertir las filas porque sino salia al reves
+  matriz <- t(apply(matriz, 2, c)) # Transpuesta porque salia al reves
+  
+  # Configura el tamaño de la figura
+  par(mar=c(5, 4, 2, 2)) # Configura los márgenes
+  
+  # Crea un mapa de calor para visualizar la matriz de correlaciones
+  image(1:nrow(matriz), 1:ncol(matriz), matriz, col=heat.colors(256), axes=FALSE)
+  
+  # Etiquetas de los ejes
+  num_variables <- ncol(matriz)
+  axis(1, at=1:num_variables, labels=colnames(matriz), las=2)
+  axis(2, at=1:num_variables, labels=rev(colnames(matriz)), las=2)
+  
+  # Muestra el valor de correlación en cada celda
+  for (i in 1:num_variables) {
+    for (j in 1:num_variables) {
+      text(i, j, round(matriz[i, j], 2), col="black", cex=1.5)
+    }
+  }
+  
+  # Título y etiquetas de los ejes
+  title("Matriz de Correlación")
+  mtext("Variables", side=1, line=3)  # Etiqueta del eje X
+  mtext("Variables", side=2, line=3)  # Etiqueta del eje Y
+  
+  # Muestra la matriz de correlaciones
+  box()
+}
+```
+
+### <u>Caso de uso:</u> Visualizar la correlación
+En este caso, se ha decidido usar un gradiente desde el rojo (valor más pequeño) al blanco (valor más grande).
+
+```{r, eval=TRUE}
+visualizar_matriz_correlacion(df)
+```
+
+<br/>
+
+### - **Información Mutua:**
+Se pasa como argumento el dataframe y la funcion se encargará de obtener los resultados (llamando a calcular_info_mutua()) y de realizar el plot.
+
+```{r, eval=TRUE}
+visualizar_infmutua <- function(datos) {
+  #' Visualiza la matriz de información mutua para un dataframe.
+  #' Se hace uso de función calcular_info_mutua() para obtener los datos y asi poder realizar el plot.
+  #'
+  #' @param datos Un DataFrame que contiene las variables para las cuales se calculará la información mutua.
+  
+  # Calcula la matriz de correlaciones
+  matriz <- calcular_info_mutua(datos)
+  matriz <-  as.matrix(matriz[nrow(matriz):1, ])
+  matriz <- t(apply(matriz, 2, c)) # Transpuesta porque salia al reves
+  
+  
+  # Configura el tamaño de la figura
+  par(mar=c(5, 4, 2, 2)) # Configura los márgenes
+  
+  # Crea un mapa de calor para visualizar la matriz de correlaciones
+  image(1:nrow(matriz), 1:ncol(matriz), matriz, col=heat.colors(256), axes=FALSE)
+  
+  # Etiquetas de los ejes
+  num_variables <- ncol(matriz)
+  axis(1, at=1:num_variables, labels=colnames(matriz), las=2)
+  axis(2, at=1:num_variables, labels=rev(colnames(matriz)), las=2)
+  
+  # Muestra el valor de correlación en cada celda
+  for (i in 1:num_variables) {
+    for (j in 1:num_variables) {
+      text(i, j, round(matriz[i, j], 2), col="black", cex=1.5)
+    }
+  }
+  
+  
+  # Título y etiquetas de los ejes
+  title("Matriz de Correlación")
+  xlabel <- expression("Variables")
+  ylabel <- expression("Variables")
+  mtext(side=1, line=3, xlabel)
+  mtext(side=2, line=3, ylabel)
+  
+  # Muestra la matriz de correlaciones
+  box()
+}
+```
+
+
+### <u>Caso de uso:</u> Visualizar Información Mutua
+En este caso, se ha decidido usar un gradiente desde el rojo (valor más pequeño) al blanco (valor más grande).
+
+```{r, eval=TRUE}
+visualizar_infmutua(df)
+```
+
+### - **AUC-ROC:**
+A diferencia de las otras dos visualizaciones, en este caso no se pasa como argumento el dataframe, sino la lista de FPR y TPR.
+
+De este modo, se visualiza para una variable y la etiqueta correspondiente.
+
+```{r, eval=TRUE}
+visualizar_roc <- function(tpr_lisr, fpr_list) {
+  #' Visualiza una curva AUC-ROC utilizando las tasas de falsos positivos (FPR) y verdaderos positivos (TPR) proporcionadas.
+  #'
+  #' @param fpr_list Lista de tasas de falsos positivos.
+  #' @param tpr_list Lista de tasas de verdaderos positivos.
+  #' Los dos argumentos deben de tener la misma longitud
+  
+  # Pasar a vector
+  res <- unlist(res) 
+  tpr_lisr <- unlist(tpr_lisr) 
+  fpr_list <- unlist(fpr_list)
+  
+  # Crear un gráfico de la curva ROC
+  plot(fpr_list, tpr_lisr, type = "l", col = "blue", lwd = 2, xlim = c(0, 1), ylim = c(0, 1),
+       xlab = "Tasa de Falsos Positivos (FPR)", ylab = "Tasa de Verdaderos Positivos (TPR)",
+       main = paste("Curva ROC (AUC)"))
+  
+  # Línea de referencia (diagonal)
+  abline(0, 1, col = "gray", lty = 2)
+  
+  # Leyenda
+  
+}
+```
+
+### <u>Caso de uso:</u> Visualizar Información Mutua
+
+```{r, eval=TRUE}
+fpr_list = c(0, 0.1, 0.2, 0.5, 0.8, 1)
+tpr_list = c(0, 0.15, 0.45, 0.8, 0.9, 1)
+visualizar_roc(tpr_list, fpr_list)
+```
