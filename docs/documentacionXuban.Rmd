@@ -23,7 +23,7 @@ Para ello, se mostrará punto por punto las funciones implementadas tal y como s
 
 * En la entrega se ha añadido la libreria en archivos .R (no paquete) en la carpeta code y la documentación en la carpeta docs (se ha añadido un archio .Rmd y .html).
 
-* La librería se ha dividido en 3 scripts: el archivo `main_funcs.R` es el script principal que contiene las funciones que podran ser llamadas. El script `utils.R` contiene las funciones auxiliares que usará el script principal. Por último, `plotting.R` contiene las funciones para visualizar.
+* La librería se ha dividido en 3 scripts: el archivo `main_funcs.R` es el script principal que contiene las funciones que podran ser llamadas. El script `utils.R` contiene las funciones auxiliares que usará el script principal. Por último, `plotting.R` contiene las funciones para visualizar. En cualquier caso, en este documento se mostrará todo a la vez.
 
 * Además, se ha creado un repositorio en Github donde se ha subido la entrega. El URL es el siguiente: https://github.com/xubanBA/SME_R.git
 
